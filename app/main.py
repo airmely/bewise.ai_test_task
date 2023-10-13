@@ -49,7 +49,7 @@ def get_db():
 def save_question(
         db: Session,
         question: Question
-) -> Question | None:
+) -> Question or None:
     """
     Функция, которая сохраняет вопрос в базе данных,
     если вопрос с таким text не существует.
@@ -78,9 +78,10 @@ async def choice_of_question(
         db (Session): Экземпляр базы данных SQLAlchemy.
         question_num (int): Количество случайных вопросов для выбора.
     Возвращает:
-    list[Question]: Список сохраненных вопросов, если успешно сохранены.
+        list[Question]: Список сохраненных вопросов, если успешно сохранены.
     """
     questions = []
+
     while len(questions) < question_num:
         async with httpx.AsyncClient() as client:
             response = await client.get(f'https://jservice.io/api/random?count={question_num}')
@@ -90,13 +91,31 @@ async def choice_of_question(
                 id_question=questions_data['id'],
                 text=questions_data['question'],
                 answer=questions_data['answer'],
-                created_at=questions_data['created_at'],
+                created_at=questions_data['created_at'].replace('T', ' ')[:-5],
             )
             saved_question = save_question(db, question)
             if saved_question:
                 questions.append(saved_question)
 
     return questions
+
+
+@app.get("/get_questions/")
+def get_lats_question(db: Session = Depends(get_db)):
+    """
+    Получает последний вопрос из базы данных.
+    Пар.:
+        db (Session): Экземпляр базы данных SQLAlchemy, получаемый с помощью Depends(get_db).
+    Возвращает:
+        Возвращает последний вопрос,
+                            если он существует или пустой словарь, если база данных пуста.
+    """
+    last_item = db.query(Question).order_by(Question.id.desc()).first()
+    db.close()
+    if last_item:
+        return last_item
+    else:
+        return {}
 
 
 @app.post('/get_questions/')
