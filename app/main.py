@@ -1,6 +1,7 @@
 import httpx
 import uvicorn
 from fastapi import FastAPI, Depends
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 import models
@@ -96,26 +97,7 @@ async def choice_of_question(
             saved_question = save_question(db, question)
             if saved_question:
                 questions.append(saved_question)
-
     return questions
-
-
-@app.get("/get_questions/")
-def get_lats_question(db: Session = Depends(get_db)):
-    """
-    Получает последний вопрос из базы данных.
-    Пар.:
-        db (Session): Экземпляр базы данных SQLAlchemy, получаемый с помощью Depends(get_db).
-    Возвращает:
-        Возвращает последний вопрос,
-                            если он существует или пустой словарь, если база данных пуста.
-    """
-    last_item = db.query(Question).order_by(Question.id.desc()).first()
-    db.close()
-    if last_item:
-        return last_item
-    else:
-        return {}
 
 
 @app.post('/get_questions/')
@@ -134,11 +116,16 @@ async def get_questions(
         dict: Словарь с вопросами, если запрос успешно обработан, или сообщением об ошибке.
     """
     questions_num = request.questions_num
+
     if questions_num < 1:
         return {'error': 'Количество вопросов должно быть не менее 1'}
+    _questions = await choice_of_question(db, questions_num)
+    questions = db.query(Question).order_by(desc(Question.id)).all()
 
-    questions = await choice_of_question(db, questions_num)
-    return {'questions': [question.text for question in questions]}
+    if len(questions) > 1:
+        last_question = questions[1]
+        return {'question': last_question.text}
+    return {}
 
 
 if __name__ == "__main__":
