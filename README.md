@@ -42,4 +42,6 @@ docker compose up --build app
 
 ```
 docker compose exec postgres psql mydatabase --username myuser --password
+или
+./connect_db.sh
 ```
